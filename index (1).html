@@ -1,0 +1,452 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acupuncture Channel Finder</title>
+  <style>
+    /* Tailwind CSS minimal setup (subset of utilities) */
+    *,::before,::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,'Open Sans','Helvetica Neue',sans-serif;}
+    .bg-gray-100{background-color:#f3f4f6;}
+    .min-h-screen{min-height:100vh;}
+    .p-4{padding:1rem;}
+    .max-w-md{max-width:28rem;}
+    .mx-auto{margin-left:auto;margin-right:auto;}
+    .text-2xl{font-size:1.5rem;line-height:2rem;}
+    .font-bold{font-weight:700;}
+    .mb-4{margin-bottom:1rem;}
+    .text-center{text-align:center;}
+    .text-lg{font-size:1.125rem;line-height:1.75rem;}
+    .font-semibold{font-weight:600;}
+    .mb-2{margin-bottom:0.5rem;}
+    .grid{display:grid;}
+    .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+    .gap-2{gap:0.5rem;}
+    .flex{display:flex;}
+    .items-center{align-items:center;}
+    .text-sm{font-size:0.875rem;line-height:1.25rem;}
+    .mr-2{margin-right:0.5rem;}
+    .space-x-2 > :not([hidden]) ~ :not([hidden]){margin-left:0.5rem;}
+    .flex-1{flex:1 1 0%;}
+    .bg-blue-500{background-color:#3b82f6;}
+    .text-white{color:#fff;}
+    .py-2{padding-top:0.5rem;padding-bottom:0.5rem;}
+    .rounded{border-radius:0.25rem;}
+    .hover\:bg-blue-600:hover{background-color:#2563eb;}
+    .disabled\:bg-gray-400:disabled{background-color:#9ca3af;}
+    .bg-green-500{background-color:#22c55e;}
+    .hover\:bg-green-600:hover{background-color:#16a34a;}
+    .bg-yellow-500{background-color:#eab308;}
+    .hover\:bg-yellow-600:hover{background-color:#ca8a04;}
+    .mt-4{margin-top:1rem;}
+    .hidden{display:none;}
+    .justify-end{justify-content:flex-end;}
+    .bg-purple-500{background-color:#8b5cf6;}
+    .py-1{padding-top:0.25rem;padding-bottom:0.25rem;}
+    .px-3{padding-left:0.75rem;padding-right:0.75rem;}
+    .hover\:bg-purple-600:hover{background-color:#7c3aed;}
+    .text-md{font-size:1rem;line-height:1.5rem;}
+    .font-medium{font-weight:500;}
+    .list-disc{list-style-type:disc;}
+    .pl-5{padding-left:1.25rem;}
+  </style>
+  <link rel="manifest" href="data:application/manifest+json,{
+    \"name\": \"Acupuncture Channel Finder\",
+    \"short_name\": \"AcuFinder\",
+    \"start_url\": \".\",
+    \"display\": \"standalone\",
+    \"background_color\": \"#ffffff\",
+    \"theme_color\": \"#000000\",
+    \"icons\": [
+      {
+        \"src\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAAAXNSR0IArs4c6QAAAQBJREFUeF7t1QENAAAIwzDA/f8bI4LACg0NYgAFmACwgQ0AG9gAsIENABvYANiBBgAb2ACwgQ0AG9gAsIENABvYANiBBgAb2ACwgQ0AG9gAsIENABvYANiBBgAb2ACwgQ0AG9gAsIENABvYANiBBgAb2ACwgQ0AG9gAsIENABvYANiBBgAb2ACwgQ0AG9gAsIENABvYANiBBgAb2ACwgQ0AG9gAsIENABvYANiBBgAb2ACwgQ0AG9gAsIENABvYANiBBgAb2ACwgQ0AG9gAsIENABvYANiBBgAb2ACwgQ0AG9gAsIENABvYAXc8AAH2y4xYAAAAASUVORK5CYII=\",
+        \"sizes\": \"128x128\",
+        \"type\": \"image/png\"
+      }
+    ]
+  }">
+  <meta name="mobile-web-app-capable" content="yes">
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+  <div class="max-w-md mx-auto">
+    <h1 class="text-2xl font-bold mb-4 text-center">Acupuncture Channel Finder</h1>
+    <div class="mb-4">
+      <h2 class="text-lg font-semibold mb-2">Select Channels</h2>
+      <div class="grid grid-cols-2 gap-2" id="channel-list"></div>
+    </div>
+    <div class="mb-4">
+      <h2 class="text-lg font-semibold mb-2">Filter Systems</h2>
+      <div class="grid grid-cols-3 gap-2" id="system-filter"></div>
+    </div>
+    <div class="flex space-x-2 mb-4">
+      <button id="search-btn" class="flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:bg-gray-400" disabled>Find Correspondences</button>
+      <button id="save-btn" class="flex-1 bg-green-500 text-white py-2 rounded hover:bg-green-600 disabled:bg-gray-400" disabled>Save Selection</button>
+      <button id="load-btn" class="flex-1 bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600">Load Selection</button>
+    </div>
+    <div id="results" class="mt-4 hidden">
+      <div class="flex justify-end mb-2">
+        <button id="export-btn" class="bg-purple-500 text-white py-1 px-3 rounded hover:bg-purple-600">Export Results</button>
+      </div>
+      <div id="results-content"></div>
+    </div>
+  </div>
+  <script>
+    const channelData = {
+      'H. Taiyin (LU)': {
+        'System 1': 'F. Taiyin (SP)', 'System 2': 'F. Taiyang (BL)', 'System 3': 'H. Yangming (LI)', 'System 4': 'F. Taiyang (BL)', 'System 5': 'F. Jueyin (LV)'
+      },
+      'H. Yangming (LI)': {
+        'System 1': 'F. Yangming (ST)', 'System 2': 'F. Jueyin (LV)', 'System 3': 'H. Taiyin (LU)', 'System 4': 'F. Shaoyin (KD)', 'System 5': 'F. Yangming (ST)'
+      },
+      'F. Yangming (ST)': {
+        'System 1': 'H. Yangming (LI)', 'System 2': 'H. Jueyin (PC)', 'System 3': 'F. Taiyin (SP)', 'System 4': 'H. Jueyin (PC)', 'System 5': 'H. Yangming (LI)'
+      },
+      'F. Taiyin (SP)': {
+        'System 1': 'H. Taiyin (LU)', 'System 2': 'H. Taiyang (SI)', 'System 3': 'F. Yangming (ST)', 'System 4': 'H. Shaoyang (SJ)', 'System 5': 'H. Shaoyin (HT)'
+      },
+      'H. Shaoyin (HT)': {
+        'System 1': 'F. Shaoyin (KD)', 'System 2': 'F. Shaoyang (GB)', 'System 3': 'H. Taiyang (SI)', 'System 4': 'F. Shaoyang (GB)', 'System 5': 'F. Taiyin (SP)'
+      },
+      'H. Taiyang (SI)': {
+        'System 1': 'F. Taiyang (BL)', 'System 2': 'F. Taiyin (SP)', 'System 3': 'H. Shaoyin (HT)', 'System 4': 'F. Jueyin (LV)', 'System 5': 'F. Taiyang (BL)'
+      },
+      'F. Taiyang (BL)': {
+        'System 1': 'H. Taiyang (SI)', 'System 2': 'H. Taiyin (LU)', 'System 3': 'F. Shaoyin (KD)', 'System 4': 'H. Taiyin (LU)', 'System 5': 'H. Taiyang (SI)'
+      },
+      'F. Shaoyin (KD)': {
+        'System 1': 'H. Shaoyin (HT)', 'System 2': 'H. Shaoyang (SJ)', 'System 3': 'F. Taiyang (BL)', 'System 4': 'H. Yangming (LI)', 'System 5': 'H. Jueyin (PC)'
+      },
+      'H. Jueyin (PC)': {
+        'System 1': 'F. Jueyin (LV)', 'System 2': 'F. Yangming (ST)', 'System 3': 'H. Shaoyang (SJ)', 'System 4': 'F. Yangming (ST)', 'System 5': 'F. Shaoyin (KD)'
+      },
+      'H. Shaoyang (SJ)': {
+        'System 1': 'F. Shaoyang (GB)', 'System 2': 'F. Shaoyin (KD)', 'System 3': 'H. Jueyin (PC)', 'System 4': 'F. Taiyin (SP)', 'System 5': 'F. Shaoyang (GB)'
+      },
+      'F. Shaoyang (GB)': {
+        'System 1': 'H. Shaoyang (SJ)', 'System 2': 'H. Shaoyin (HT)', 'System 3': 'F. Jueyin (LV)', 'System 4': 'H. Shaoyin (HT)', 'System 5': 'H. Shaoyang (SJ)'
+      },
+      'F. Jueyin (LV)': {
+        'System 1': 'H. Jueyin (PC)', 'System 2': 'H. Yangming (LI)', 'System 3': 'F. Shaoyang (GB)', 'System 4': 'H. Taiyang (SI)', 'System 5': 'H. Taiyin (LU)'
+      }
+    };
+
+    const sideInfo = {
+      'System 1': 'Contralateral',
+      'System 2': 'Either',
+      'System 3': 'Contralateral',
+      'System 4': 'Either',
+      'System 5': 'Contralateral'
+    };
+
+    const channels = Object.keys(channelData);
+    const systems = ['System 1', 'System 2', 'System 3', 'System 4', 'System 5'];
+    const selectedChannels = new Set();
+    const selectedSystems = new Set(systems);
+
+    // Populate channel checkboxes
+    const channelList = document.getElementById('channel-list');
+    channels.forEach(channel => {
+      const label = document.createElement('label');
+      label.className = 'flex items-center';
+      label.innerHTML = `
+        <input type="checkbox" value="${channel}" class="mr-2">
+        <span class="text-sm">${channel}</span>
+      `;
+      channelList.appendChild(label);
+    });
+
+    // Populate system filter checkboxes
+    const systemFilter = document.getElementById('system-filter');
+    systems.forEach(system => {
+      const label = document.createElement('label');
+      label.className = 'flex items-center';
+      label.innerHTML = `
+        <input type="checkbox" value="${system}" class="mr-2" checked>
+        <span class="text-sm">${system}</span>
+      `;
+      systemFilter.appendChild(label);
+    });
+
+    // Enable/disable buttons
+    channelList.addEventListener('change', (e) => {
+      if (e.target.type === 'checkbox') {
+        if (e.target.checked) {
+          selectedChannels.add(e.target.value);
+        } else {
+          selectedChannels.delete(e.target.value);
+        }
+        document.getElementById('search-btn').disabled = selectedChannels.size === 0;
+        document.getElementById('save-btn').disabled = selectedChannels.size === 0;
+      }
+    });
+
+    // System filter change
+    systemFilter.addEventListener('change', (e) => {
+      if (e.target.type === 'checkbox') {
+        if (e.target.checked) {
+          selectedSystems.add(e.target.value);
+        } else {
+          selectedSystems.delete(e.target.value);
+        }
+      }
+    });
+
+    // Identify channels that cover a subset of selected channels (at least two)
+    function findPartialCoveringChannels(selectedChannels, selectedSystems, channels) {
+      if (selectedChannels.size < 3) return [];
+      const partialCovering = [];
+      const selectedArray = [...selectedChannels];
+
+      // Generate all possible subsets of size 2 or more
+      const subsets = [];
+      for (let r = 2; r < selectedArray.length; r++) {
+        const combs = getCombinations(selectedArray, r);
+        subsets.push(...combs);
+      }
+
+      channels.forEach(channel => {
+        subsets.forEach(subset => {
+          let coversAllInSubset = true;
+          const covered = new Set();
+          subset.forEach(selected => {
+            let found = false;
+            for (const system of selectedSystems) {
+              if (channelData[channel][system] === selected) {
+                found = true;
+                covered.add(selected);
+                break;
+              }
+            }
+            if (!found) coversAllInSubset = false;
+          });
+          if (coversAllInSubset) {
+            const notCovered = selectedArray.filter(c => !covered.has(c));
+            if (notCovered.length > 0) {
+              partialCovering.push({ channel, covered: [...covered], notCovered });
+            }
+          }
+        });
+      });
+
+      // Remove duplicates and ensure unique entries
+      const uniquePartialCovering = [];
+      const seen = new Set();
+      partialCovering.forEach(entry => {
+        const key = `${entry.channel}:${entry.covered.sort().join(',')}:${entry.notCovered.sort().join(',')}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniquePartialCovering.push(entry);
+        }
+      });
+
+      return uniquePartialCovering;
+    }
+
+    // Helper function to generate combinations
+    function getCombinations(array, r) {
+      const results = [];
+      function combine(index, current) {
+        if (current.length === r) {
+          results.push([...current]);
+          return;
+        }
+        for (let i = index; i < array.length; i++) {
+          current.push(array[i]);
+          combine(i + 1, current);
+          current.pop();
+        }
+      }
+      combine(0, []);
+      return results;
+    }
+
+    // Search functionality
+    document.getElementById('search-btn').addEventListener('click', () => {
+      const resultsDiv = document.getElementById('results');
+      const resultsContent = document.getElementById('results-content');
+      resultsContent.innerHTML = '';
+      resultsDiv.classList.remove('hidden');
+
+      // Display correspondences
+      selectedChannels.forEach(channel => {
+        const channelDiv = document.createElement('div');
+        channelDiv.className = 'mb-4';
+        channelDiv.innerHTML = `<h3 class="text-md font-medium">${channel}</h3>`;
+        const ul = document.createElement('ul');
+        ul.className = 'list-disc pl-5';
+        for (const system of selectedSystems) {
+          ul.innerHTML += `<li class="text-sm">${system}: ${channelData[channel][system]} (${sideInfo[system]})</li>`;
+        }
+        channelDiv.appendChild(ul);
+        resultsContent.appendChild(channelDiv);
+      });
+
+      // Find full covering channels
+      if (selectedChannels.size >= 2) {
+        const covering = [];
+        channels.forEach(channel => {
+          let coversAll = true;
+          selectedChannels.forEach(selected => {
+            let found = false;
+            for (const system of selectedSystems) {
+              if (channelData[channel][system] === selected) {
+                found = true;
+                break;
+              }
+            }
+            if (!found) coversAll = false;
+          });
+          if (coversAll) covering.push(channel);
+        });
+
+        if (covering.length > 0) {
+          const coveringDiv = document.createElement('div');
+          coveringDiv.className = 'mt-4';
+          coveringDiv.innerHTML = `<h3 class="text-md font-medium">Channels Covering All Selected</h3>`;
+          const ul = document.createElement('ul');
+          ul.className = 'list-disc pl-5';
+          covering.forEach(channel => {
+            ul.innerHTML += `<li class="text-sm">${channel}</li>`;
+          });
+          coveringDiv.appendChild(ul);
+          resultsContent.appendChild(coveringDiv);
+        }
+
+        // Find partial covering channels
+        const partialCovering = findPartialCoveringChannels(selectedChannels, selectedSystems, channels);
+        if (partialCovering.length > 0) {
+          const partialDiv = document.createElement('div');
+          partialDiv.className = 'mt-4';
+          partialDiv.innerHTML = `<h3 class="text-md font-medium">Channels Covering Subsets of Selected</h3>`;
+          const ul = document.createElement('ul');
+          ul.className = 'list-disc pl-5';
+          partialCovering.forEach(entry => {
+            ul.innerHTML += `<li class="text-sm">${entry.channel} covers [${entry.covered.join(', ')}] but not [${entry.notCovered.join(', ')}]</li>`;
+          });
+          partialDiv.appendChild(ul);
+          resultsContent.appendChild(partialDiv);
+        }
+      }
+    });
+
+    // Save selection
+    document.getElementById('save-btn').addEventListener('click', () => {
+      localStorage.setItem('savedChannels', JSON.stringify([...selectedChannels]));
+      alert('Selection saved!');
+    });
+
+    // Load selection
+    document.getElementById('load-btn').addEventListener('click', () => {
+      const saved = localStorage.getItem('savedChannels');
+      if (saved) {
+        selectedChannels.clear();
+        JSON.parse(saved).forEach(channel => selectedChannels.add(channel));
+        channelList.querySelectorAll('input[type="checkbox"]').forEach(input => {
+          input.checked = selectedChannels.has(input.value);
+        });
+        document.getElementById('search-btn').disabled = selectedChannels.size === 0;
+        document.getElementById('save-btn').disabled = selectedChannels.size === 0;
+        alert('Selection loaded!');
+      } else {
+        alert('No saved selection found.');
+      }
+    });
+
+    // Export results
+    document.getElementById('export-btn').addEventListener('click', () => {
+      let text = 'Acupuncture Channel Correspondences\n\n';
+      selectedChannels.forEach(channel => {
+        text += `${channel}\n`;
+        selectedSystems.forEach(system => {
+          text += `  ${system}: ${channelData[channel][system]} (${sideInfo[system]})\n`;
+        });
+        text += '\n';
+      });
+
+      if (selectedChannels.size >= 2) {
+        const covering = [];
+        channels.forEach(channel => {
+          let coversAll = true;
+          selectedChannels.forEach(selected => {
+            let found = false;
+            for (const system of selectedSystems) {
+              if (channelData[channel][system] === selected) {
+                found = true;
+                break;
+              }
+            }
+            if (!found) coversAll = false;
+          });
+          if (coversAll) covering.push(channel);
+        });
+
+        if (covering.length > 0) {
+          text += 'Channels Covering All Selected:\n';
+          covering.forEach(channel => {
+            text += `  ${channel}\n`;
+          });
+          text += '\n';
+        }
+
+        const partialCovering = findPartialCoveringChannels(selectedChannels, selectedSystems, channels);
+        if (partialCovering.length > 0) {
+          text += 'Channels Covering Subsets of Selected:\n';
+          partialCovering.forEach(entry => {
+            text += `  ${entry.channel} covers [${entry.covered.join(', ')}] but not [${entry.notCovered.join(', ')}]\n`;
+          });
+        }
+      }
+
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'acupuncture_results.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
